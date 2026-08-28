@@ -1,0 +1,419 @@
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-kicker">Rental marketplace</span>
+      <h1>Rent It</h1>
+    </div>
+
+    <div class="session-box">
+      @if (auth(); as user) {
+        <div class="session-user">
+          <strong>{{ user.name }}</strong>
+          <span>{{ user.role }} · {{ user.email }}</span>
+        </div>
+        <button type="button" class="ghost-button" (click)="logout()">Sign out</button>
+      } @else {
+        <span class="signed-out">Guest</span>
+      }
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="notice error">{{ error() }}</div>
+  }
+  @if (success()) {
+    <div class="notice success">{{ success() }}</div>
+  }
+
+  <section class="auth-grid">
+    <form class="panel auth-panel" [formGroup]="loginForm" (ngSubmit)="login()">
+      <h2>Login</h2>
+      <label>
+        Email
+        <input type="email" formControlName="email" autocomplete="email" />
+      </label>
+      <label>
+        Password
+        <input type="password" formControlName="password" autocomplete="current-password" />
+      </label>
+      <button type="submit" class="primary-button" [disabled]="loading()">Login</button>
+    </form>
+
+    <form class="panel auth-panel" [formGroup]="registerForm" (ngSubmit)="register()">
+      <h2>Register</h2>
+      <div class="two-col">
+        <label>
+          Name
+          <input type="text" formControlName="name" />
+        </label>
+        <label>
+          Phone
+          <input type="tel" formControlName="phone" />
+        </label>
+      </div>
+      <label>
+        Email
+        <input type="email" formControlName="email" autocomplete="email" />
+      </label>
+      <div class="two-col">
+        <label>
+          Password
+          <input type="password" formControlName="password" autocomplete="new-password" />
+        </label>
+        <label>
+          Role
+          <select formControlName="role">
+            <option value="USER">USER</option>
+            <option value="OWNER">OWNER</option>
+          </select>
+        </label>
+      </div>
+      <button type="submit" class="secondary-button" [disabled]="loading()">Send OTP</button>
+    </form>
+
+    <form class="panel auth-panel" [formGroup]="verifyForm" (ngSubmit)="verifyOtp()">
+      <h2>Verify OTP</h2>
+      <label>
+        Email
+        <input type="email" formControlName="email" />
+      </label>
+      <label>
+        OTP
+        <input type="text" formControlName="otp" inputmode="numeric" />
+      </label>
+      <button type="submit" class="secondary-button" [disabled]="loading()">Verify</button>
+    </form>
+  </section>
+
+  <main class="workspace">
+    <section class="market">
+      <div class="market-toolbar">
+        <div class="tabs" role="tablist" aria-label="Listing type">
+          <button type="button" [class.active]="activeTab() === 'rooms'" (click)="activeTab.set('rooms')">Rooms</button>
+          <button type="button" [class.active]="activeTab() === 'properties'" (click)="activeTab.set('properties')">Properties</button>
+          <button type="button" [class.active]="activeTab() === 'roommates'" (click)="activeTab.set('roommates')">Roommates</button>
+        </div>
+
+        <form class="search" [formGroup]="searchForm" (ngSubmit)="searchByCity()">
+          <input type="search" formControlName="city" placeholder="Search city" />
+          <button type="submit" class="primary-button">Search</button>
+          <button type="button" class="ghost-button" (click)="clearSearch()">Clear</button>
+        </form>
+      </div>
+
+      @if (activeTab() === 'rooms') {
+        <div class="section-heading">
+          <h2>Rooms</h2>
+          <button type="button" class="ghost-button" (click)="loadRooms()">Refresh</button>
+        </div>
+
+        @if (rooms().length) {
+          <div class="listing-grid">
+            @for (room of rooms(); track room.id) {
+              <article class="listing-card">
+                <img [src]="imageFor(room.images)" [alt]="room.title" />
+                <div class="listing-body">
+                  <div class="listing-title">
+                    <h3>{{ room.title }}</h3>
+                    <span class="status" [class.closed]="room.available === false">
+                      {{ room.available === false ? 'Unavailable' : 'Available' }}
+                    </span>
+                  </div>
+                  <p>{{ room.description }}</p>
+                  <dl>
+                    <div><dt>Rent</dt><dd>{{ money(room.rent) }}</dd></div>
+                    <div><dt>City</dt><dd>{{ room.city }}</dd></div>
+                    <div><dt>Capacity</dt><dd>{{ room.capacity }}</dd></div>
+                    <div><dt>Owner</dt><dd>{{ room.ownerName || 'Owner' }}</dd></div>
+                  </dl>
+                  <span class="address">{{ room.address }}</span>
+                  <div class="card-actions">
+                    <input #roomMessage type="text" placeholder="Message owner" [disabled]="!auth()" />
+                    <button type="button" class="secondary-button" [disabled]="!auth()" (click)="sendRoomInterest(room, roomMessage.value); roomMessage.value = ''">Send interest</button>
+                    @if (canManage(room.ownerId)) {
+                      <button type="button" class="ghost-button" (click)="loadRoomRequests(room)">Requests</button>
+                      <button type="button" class="danger-button" (click)="deleteRoom(room)">Delete</button>
+                    }
+                  </div>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <img [src]="fallbackImage" alt="Rental room" />
+            <p>No rooms found</p>
+          </div>
+        }
+      }
+
+      @if (activeTab() === 'properties') {
+        <div class="section-heading">
+          <h2>Properties</h2>
+          <button type="button" class="ghost-button" (click)="loadProperties()">Refresh</button>
+        </div>
+
+        @if (properties().length) {
+          <div class="listing-grid">
+            @for (property of properties(); track property.id) {
+              <article class="listing-card">
+                <img [src]="imageFor(property.images)" [alt]="property.title" />
+                <div class="listing-body">
+                  <div class="listing-title">
+                    <h3>{{ property.title }}</h3>
+                    <span class="status" [class.closed]="property.available === false">
+                      {{ property.available === false ? 'Unavailable' : 'Available' }}
+                    </span>
+                  </div>
+                  <p>{{ property.description }}</p>
+                  <dl>
+                    <div><dt>Rent</dt><dd>{{ money(property.rent) }}</dd></div>
+                    <div><dt>Deposit</dt><dd>{{ money(property.deposit) }}</dd></div>
+                    <div><dt>City</dt><dd>{{ property.city }}</dd></div>
+                    <div><dt>Type</dt><dd>{{ property.bhkType || 'Rental' }}</dd></div>
+                  </dl>
+                  <span class="address">{{ property.address }}</span>
+                  <div class="card-actions compact">
+                    <span>Owner: {{ property.ownerName || 'Owner' }}</span>
+                    @if (canManage(property.ownerId)) {
+                      <button type="button" class="danger-button" (click)="deleteProperty(property)">Delete</button>
+                    }
+                  </div>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <img [src]="fallbackImage" alt="Rental property" />
+            <p>No properties found</p>
+          </div>
+        }
+      }
+
+      @if (activeTab() === 'roommates') {
+        <div class="section-heading">
+          <h2>Roommates</h2>
+          <button type="button" class="ghost-button" (click)="loadRoommates()">Refresh</button>
+        </div>
+
+        @if (roommates().length) {
+          <div class="roommate-list">
+            @for (post of roommates(); track post.id) {
+              <article class="roommate-card">
+                <div>
+                  <div class="listing-title">
+                    <h3>{{ post.title }}</h3>
+                    <span class="status" [class.closed]="post.active === false">
+                      {{ post.active === false ? 'Closed' : 'Open' }}
+                    </span>
+                  </div>
+                  <p>{{ post.description }}</p>
+                  <dl>
+                    <div><dt>City</dt><dd>{{ post.city }}</dd></div>
+                    <div><dt>Rent</dt><dd>{{ post.rent }}</dd></div>
+                    <div><dt>Gender</dt><dd>{{ post.genderPreference || 'Any' }}</dd></div>
+                    <div><dt>Food</dt><dd>{{ post.foodPreference || 'Any' }}</dd></div>
+                    <div><dt>Occupation</dt><dd>{{ post.occupation || 'Any' }}</dd></div>
+                    <div><dt>Smoking</dt><dd>{{ post.smoking ? 'Yes' : 'No' }}</dd></div>
+                  </dl>
+                  <span class="address">Posted by {{ post.userName || 'User' }}</span>
+                </div>
+                <div class="card-actions">
+                  <input #roommateMessage type="text" placeholder="Message poster" [disabled]="!auth()" />
+                  <button type="button" class="secondary-button" [disabled]="!auth()" (click)="sendRoommateRequest(post, roommateMessage.value); roommateMessage.value = ''">Send request</button>
+                  @if (canManage(post.userId)) {
+                    <button type="button" class="ghost-button" (click)="loadRoommateRequests(post)">Requests</button>
+                    <button type="button" class="danger-button" (click)="deleteRoommatePost(post)">Delete</button>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <img [src]="fallbackImage" alt="Rental room" />
+            <p>No roommate posts found</p>
+          </div>
+        }
+      }
+    </section>
+
+    <aside class="side-column">
+      <section class="panel compose-panel">
+        <h2>Post Room</h2>
+        <form [formGroup]="roomForm" (ngSubmit)="createRoom()">
+          <label>
+            Title
+            <input type="text" formControlName="title" />
+          </label>
+          <label>
+            Description
+            <textarea rows="3" formControlName="description"></textarea>
+          </label>
+          <div class="two-col">
+            <label>
+              City
+              <input type="text" formControlName="city" />
+            </label>
+            <label>
+              Rent
+              <input type="number" formControlName="rent" min="0" />
+            </label>
+          </div>
+          <div class="two-col">
+            <label>
+              Capacity
+              <input type="number" formControlName="capacity" min="1" />
+            </label>
+            <label>
+              Images
+              <input type="file" multiple accept="image/*" (change)="onRoomImagesSelected($event)" />
+            </label>
+          </div>
+          <label>
+            Address
+            <input type="text" formControlName="address" />
+          </label>
+          <button type="submit" class="primary-button" [disabled]="loading() || !isOwner()">Post room</button>
+        </form>
+      </section>
+
+      <section class="panel compose-panel">
+        <h2>Post Property</h2>
+        <form [formGroup]="propertyForm" (ngSubmit)="createProperty()">
+          <label>
+            Title
+            <input type="text" formControlName="title" />
+          </label>
+          <label>
+            Description
+            <textarea rows="3" formControlName="description"></textarea>
+          </label>
+          <label>
+            Address
+            <input type="text" formControlName="address" />
+          </label>
+          <div class="two-col">
+            <label>
+              City
+              <input type="text" formControlName="city" />
+            </label>
+            <label>
+              Type
+              <select formControlName="bhkType">
+                <option>1 BHK</option>
+                <option>2 BHK</option>
+                <option>3 BHK</option>
+                <option>Studio</option>
+              </select>
+            </label>
+          </div>
+          <div class="two-col">
+            <label>
+              Rent
+              <input type="number" formControlName="rent" min="0" />
+            </label>
+            <label>
+              Deposit
+              <input type="number" formControlName="deposit" min="0" />
+            </label>
+          </div>
+          <label>
+            Images
+            <input type="file" multiple accept="image/*" (change)="onPropertyImagesSelected($event)" />
+          </label>
+          <button type="submit" class="primary-button" [disabled]="loading() || !isOwner()">Post property</button>
+        </form>
+      </section>
+
+      <section class="panel compose-panel">
+        <h2>Find Roommate</h2>
+        <form [formGroup]="roommateForm" (ngSubmit)="createRoommatePost()">
+          <label>
+            Title
+            <input type="text" formControlName="title" />
+          </label>
+          <label>
+            Description
+            <textarea rows="3" formControlName="description"></textarea>
+          </label>
+          <div class="two-col">
+            <label>
+              City
+              <input type="text" formControlName="city" />
+            </label>
+            <label>
+              Rent
+              <input type="text" formControlName="rent" />
+            </label>
+          </div>
+          <div class="two-col">
+            <label>
+              Gender
+              <select formControlName="genderPreference">
+                <option>Any</option>
+                <option>Male</option>
+                <option>Female</option>
+              </select>
+            </label>
+            <label>
+              Food
+              <select formControlName="foodPreference">
+                <option>Any</option>
+                <option>Veg</option>
+                <option>Non-veg</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            Occupation
+            <input type="text" formControlName="occupation" />
+          </label>
+          <label class="check-row">
+            <input type="checkbox" formControlName="smoking" />
+            Smoking allowed
+          </label>
+          <button type="submit" class="primary-button" [disabled]="loading() || !auth()">Post roommate</button>
+        </form>
+      </section>
+
+      <section class="panel request-panel">
+        <h2>{{ selectedRequestTitle() }}</h2>
+        @if (roomRequests().length) {
+          <div class="request-list">
+            @for (request of roomRequests(); track request.id) {
+              <article class="request-item">
+                <strong>{{ request.userName || 'User' }}</strong>
+                <p>{{ request.message }}</p>
+                <span>{{ request.status || 'Pending' }}</span>
+                <div>
+                  <button type="button" class="secondary-button" (click)="acceptRoomRequest(request)">Accept</button>
+                  <button type="button" class="danger-button" (click)="rejectRoomRequest(request)">Reject</button>
+                </div>
+              </article>
+            }
+          </div>
+        }
+        @if (roommateRequests().length) {
+          <div class="request-list">
+            @for (request of roommateRequests(); track request.id) {
+              <article class="request-item">
+                <strong>{{ request.senderName || 'User' }}</strong>
+                <p>{{ request.message }}</p>
+                <span>{{ request.status || 'Pending' }}</span>
+                <div>
+                  <button type="button" class="secondary-button" (click)="acceptRoommateRequest(request)">Accept</button>
+                  <button type="button" class="danger-button" (click)="rejectRoommateRequest(request)">Reject</button>
+                </div>
+              </article>
+            }
+          </div>
+        }
+        @if (!roomRequests().length && !roommateRequests().length) {
+          <p class="muted">No requests selected</p>
+        }
+      </section>
+    </aside>
+  </main>
+</div>

@@ -4,7 +4,9 @@ import org.modelmapper.ModelMapper;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
+@Configuration
 @SpringBootApplication
 public class RentItApplication {
 
@@ -13,10 +15,8 @@ public class RentItApplication {
         SpringApplication.run(RentItApplication.class, args);
     }
     @Bean
-    public ModelMapper modelMapper()
-    {
+       public ModelMapper modelMapper(){
         return new ModelMapper();
-    }
-
+       }
 
 }

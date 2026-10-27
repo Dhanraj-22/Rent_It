@@ -2,6 +2,7 @@ package com.example.rent_it.ServiceImpl;
 
 import com.example.rent_it.DTO.RoomInterestRequestDto;
 import com.example.rent_it.DTO.RoomPostDto;
+import com.example.rent_it.Auth.CurrentUserService;
 import com.example.rent_it.Entity.Role;
 import com.example.rent_it.Entity.RoomImage;
 import com.example.rent_it.Entity.RoomInterestRequest;
@@ -32,6 +33,7 @@ public class RoomPostServiceImpl implements RoomPostService {
     private final UserRepositoty userRepositoty;
     private final FileService fileService;
     private final EmailService emailService;
+    private final CurrentUserService currentUserService;
 
     @Value("${property.image.path:uploads}")
     private String path;
@@ -41,6 +43,7 @@ public class RoomPostServiceImpl implements RoomPostService {
 
     @Override
     public RoomPostDto createRoomPost(RoomPostDto roomPostDto, MultipartFile[] files, Long ownerId) throws IOException {
+        currentUserService.requireSelfOrAdmin(ownerId);
         User owner = findOwner(ownerId);
         RoomPost roomPost = new RoomPost();
         copyRoomFields(roomPost, roomPostDto);
@@ -83,7 +86,7 @@ public class RoomPostServiceImpl implements RoomPostService {
             Long ownerId) throws IOException {
 
         RoomPost roomPost = findRoom(roomPostId);
-        verifyOwner(roomPost, ownerId);
+        verifyOwner(roomPost);
         copyRoomFields(roomPost, roomPostDto);
 
         if (hasFiles(files)) {
@@ -101,20 +104,28 @@ public class RoomPostServiceImpl implements RoomPostService {
     @Override
     public void deleteRoomsByRoomPostId(Long roomPostId, Long ownerId) {
         RoomPost roomPost = findRoom(roomPostId);
-        verifyOwner(roomPost, ownerId);
+        verifyOwner(roomPost);
         roomPostRepository.delete(roomPost);
     }
 
     @Override
     public RoomInterestRequestDto sendRoomInterestRequest(Long roomPostId, Long userId, String message) {
         RoomPost roomPost = findRoom(roomPostId);
+        currentUserService.requireSelfOrAdmin(userId);
         User user = userRepositoty.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id = " + userId));
+
+        if (roomPost.getOwner() != null && roomPost.getOwner().getId().equals(userId)) {
+            throw new IllegalArgumentException("You cannot request your own room listing");
+        }
+        if (roomInterestRepository.existsByRoomPostIdAndUserIdAndStatus(roomPostId, userId, "Pending")) {
+            throw new IllegalArgumentException("You already have a pending request for this room");
+        }
 
         RoomInterestRequest request = new RoomInterestRequest();
         request.setRoomPost(roomPost);
         request.setUser(user);
-        request.setMessage(message == null ? "" : message);
+        request.setMessage(message == null ? "" : message.trim());
         request.setStatus("Pending");
         request.setCreatedAt(LocalDateTime.now());
 
@@ -135,7 +146,8 @@ public class RoomPostServiceImpl implements RoomPostService {
 
     @Override
     public List<RoomInterestRequestDto> getRoomInterestRequests(Long roomPostId) {
-        findRoom(roomPostId);
+        RoomPost roomPost = findRoom(roomPostId);
+        verifyOwner(roomPost);
         return roomInterestRepository.findByRoomPostId(roomPostId)
                 .stream()
                 .map(this::toRequestDto)
@@ -145,6 +157,7 @@ public class RoomPostServiceImpl implements RoomPostService {
     @Override
     public void acceptRequest(Long requestId) {
         RoomInterestRequest request = findRequest(requestId);
+        verifyOwner(request.getRoomPost());
         request.setStatus("Accepted");
         roomInterestRepository.save(request);
         emailService.sendEmail(
@@ -157,6 +170,7 @@ public class RoomPostServiceImpl implements RoomPostService {
     @Override
     public void rejectRequest(Long requestId) {
         RoomInterestRequest request = findRequest(requestId);
+        verifyOwner(request.getRoomPost());
         request.setStatus("Rejected");
         roomInterestRepository.save(request);
         emailService.sendEmail(
@@ -187,10 +201,8 @@ public class RoomPostServiceImpl implements RoomPostService {
                 .orElseThrow(() -> new ResourceNotFoundException("Request not found with id = " + requestId));
     }
 
-    private void verifyOwner(RoomPost roomPost, Long ownerId) {
-        if (roomPost.getOwner() == null || !roomPost.getOwner().getId().equals(ownerId)) {
-            throw new ResourceNotFoundException("Unauthorized owner");
-        }
+    private void verifyOwner(RoomPost roomPost) {
+        currentUserService.requireResourceOwner(roomPost.getOwner());
     }
 
     private void copyRoomFields(RoomPost roomPost, RoomPostDto roomPostDto) {

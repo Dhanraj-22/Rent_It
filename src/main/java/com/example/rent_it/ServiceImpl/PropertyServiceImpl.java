@@ -1,6 +1,7 @@
 package com.example.rent_it.ServiceImpl;
 
 import com.example.rent_it.DTO.PropertyDto;
+import com.example.rent_it.Auth.CurrentUserService;
 import com.example.rent_it.Entity.Property;
 import com.example.rent_it.Entity.PropertyImage;
 import com.example.rent_it.Entity.Role;
@@ -25,6 +26,7 @@ public class PropertyServiceImpl implements PropertyService {
     private final PropertyRepository propertyRepository;
     private final UserRepositoty userRepositoty;
     private final FileService fileService;
+    private final CurrentUserService currentUserService;
 
     @Value("${property.image.path:uploads}")
     private String path;
@@ -40,9 +42,11 @@ public class PropertyServiceImpl implements PropertyService {
         property.setImages(new ArrayList<>());
 
         Long resolvedOwnerId = ownerId != null ? ownerId : propertyDto.getOwnerId();
-        if (resolvedOwnerId != null) {
-            property.setOwner(findOwner(resolvedOwnerId));
+        if (resolvedOwnerId == null) {
+            throw new IllegalArgumentException("An owner is required to create a property");
         }
+        currentUserService.requireSelfOrAdmin(resolvedOwnerId);
+        property.setOwner(findOwner(resolvedOwnerId));
 
         addImages(property, files);
 
@@ -65,10 +69,12 @@ public class PropertyServiceImpl implements PropertyService {
     @Override
     public PropertyDto updateProperty(Long id, PropertyDto propertyDto, MultipartFile[] files) throws IOException {
         Property property = findProperty(id);
+        currentUserService.requireResourceOwner(property.getOwner());
         copyPropertyFields(property, propertyDto);
 
         Long ownerId = propertyDto.getOwnerId();
-        if (ownerId != null) {
+        if (ownerId != null && (property.getOwner() == null || !ownerId.equals(property.getOwner().getId()))) {
+            currentUserService.requireAdmin();
             property.setOwner(findOwner(ownerId));
         }
 
@@ -87,6 +93,7 @@ public class PropertyServiceImpl implements PropertyService {
     @Override
     public void deleteProperty(Long id) {
         Property property = findProperty(id);
+        currentUserService.requireResourceOwner(property.getOwner());
         propertyRepository.delete(property);
     }
 

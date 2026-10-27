@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface RoommateRequestRepository extends JpaRepository<RoommateRequest, Long> {
     List<RoommateRequest> findByPostId(Long postId);
+    boolean existsByPostIdAndSenderIdAndStatus(Long postId, Long senderId, String status);
 }

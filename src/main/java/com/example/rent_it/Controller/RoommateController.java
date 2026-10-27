@@ -3,6 +3,7 @@ package com.example.rent_it.Controller;
 import com.example.rent_it.DTO.RoommateDto;
 import com.example.rent_it.DTO.RoommateRequestDto;
 import com.example.rent_it.Service.RoommateService;
+import jakarta.validation.Valid;
 import lombok.Data;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +18,7 @@ public class RoommateController {
 
 
     @PostMapping("/createPost/{userId}")
-    public ResponseEntity<RoommateDto> createRoommate(@RequestBody RoommateDto roommateDto,@PathVariable Long userId) {
+    public ResponseEntity<RoommateDto> createRoommate(@Valid @RequestBody RoommateDto roommateDto,@PathVariable Long userId) {
         return ResponseEntity.ok(roommateService.createPost(roommateDto,userId));
       }
 
@@ -37,7 +38,7 @@ public class RoommateController {
       @PostMapping("/request/{postId}/{userId}")
       public ResponseEntity<String> sendRequest(@PathVariable Long postId,
                                                 @PathVariable Long userId
-              ,@RequestBody RoommateRequestDto roommateRequestDto){
+              ,@Valid @RequestBody RoommateRequestDto roommateRequestDto){
          roommateService.sendRequest(postId,userId,roommateRequestDto);
          return ResponseEntity.ok("Request sent successfully");
       }

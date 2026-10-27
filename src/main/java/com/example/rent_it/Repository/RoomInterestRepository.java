@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface RoomInterestRepository extends JpaRepository<RoomInterestRequest,Long> {
     List<RoomInterestRequest> findByRoomPostId(Long postId);
+    boolean existsByRoomPostIdAndUserIdAndStatus(Long postId, Long userId, String status);
 }

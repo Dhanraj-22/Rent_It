@@ -61,7 +61,9 @@ public class JwtFilter extends OncePerRequestFilter {
 
             User user = userRepositoty.findByEmail(email).orElse(null);
 
-            if (user != null) {
+            if (user != null
+                    && Boolean.TRUE.equals(user.getActive())
+                    && Boolean.TRUE.equals(user.getEmailVerified())) {
                 String role = user.getRole() == null ? "USER" : user.getRole().name();
 
                 UsernamePasswordAuthenticationToken auth =

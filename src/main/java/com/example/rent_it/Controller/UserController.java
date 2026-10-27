@@ -2,6 +2,7 @@ package com.example.rent_it.Controller;
 
 import com.example.rent_it.DTO.UserDto;
 import com.example.rent_it.Service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +18,7 @@ public class UserController {
     UserService userService;
 
     @PostMapping("register")
-    public ResponseEntity<UserDto> createNewUser(@RequestBody UserDto userDto){
+    public ResponseEntity<UserDto> createNewUser(@Valid @RequestBody UserDto userDto){
         UserDto userdto=this.userService.createNewUser(userDto);
         return ResponseEntity.ok(userdto);
     }

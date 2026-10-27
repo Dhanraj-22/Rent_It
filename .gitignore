@@ -1,5 +1,9 @@
 HELP.md
 target/
+data/
+frontend/angular*.log
+.env
+.env.*
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

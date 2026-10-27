@@ -2,6 +2,7 @@ package com.example.rent_it.ServiceImpl;
 
 import com.example.rent_it.DTO.RoommateDto;
 import com.example.rent_it.DTO.RoommateRequestDto;
+import com.example.rent_it.Auth.CurrentUserService;
 import com.example.rent_it.Entity.RoommatePost;
 import com.example.rent_it.Entity.RoommateRequest;
 import com.example.rent_it.Entity.User;
@@ -22,9 +23,11 @@ public class RoommateServiceImpl implements RoommateService {
     private final RoommateRepository roommateRepository;
     private final RoommateRequestRepository roommateRequestRepository;
     private final UserRepositoty userRepositoty;
+    private final CurrentUserService currentUserService;
 
     @Override
     public RoommateDto createPost(RoommateDto roommateDto, Long userId) {
+        currentUserService.requireSelfOrAdmin(userId);
         User user = userRepositoty.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id = " + userId));
 
@@ -64,14 +67,22 @@ public class RoommateServiceImpl implements RoommateService {
     public void sendRequest(Long postId, Long userId, RoommateRequestDto roommateRequestDto) {
         RoommatePost post = roommateRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found with id = " + postId));
+        currentUserService.requireSelfOrAdmin(userId);
 
         User sender = userRepositoty.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id = " + userId));
 
+        if (post.getUser() != null && post.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("You cannot request your own roommate post");
+        }
+        if (roommateRequestRepository.existsByPostIdAndSenderIdAndStatus(postId, userId, "Pending")) {
+            throw new IllegalArgumentException("You already have a pending request for this post");
+        }
+
         RoommateRequest request = new RoommateRequest();
         request.setPost(post);
         request.setSender(sender);
-        request.setMessage(roommateRequestDto == null ? "" : roommateRequestDto.getMessage());
+        request.setMessage(roommateRequestDto == null ? "" : roommateRequestDto.getMessage().trim());
         request.setStatus("Pending");
         request.setCreatedAt(LocalDateTime.now());
         roommateRequestRepository.save(request);
@@ -79,8 +90,9 @@ public class RoommateServiceImpl implements RoommateService {
 
     @Override
     public List<RoommateRequestDto> getRequestsForPost(Long postId) {
-        roommateRepository.findById(postId)
+        RoommatePost post = roommateRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found with id = " + postId));
+        currentUserService.requireResourceOwner(post.getUser());
 
         return roommateRequestRepository.findByPostId(postId)
                 .stream()
@@ -91,6 +103,7 @@ public class RoommateServiceImpl implements RoommateService {
     @Override
     public void acceptRequest(Long requestId) {
         RoommateRequest request = findRequest(requestId);
+        currentUserService.requireResourceOwner(request.getPost().getUser());
         request.setStatus("Accepted");
         roommateRequestRepository.save(request);
     }
@@ -98,6 +111,7 @@ public class RoommateServiceImpl implements RoommateService {
     @Override
     public void rejectRequest(Long requestId) {
         RoommateRequest request = findRequest(requestId);
+        currentUserService.requireResourceOwner(request.getPost().getUser());
         request.setStatus("Rejected");
         roommateRequestRepository.save(request);
     }
@@ -106,6 +120,7 @@ public class RoommateServiceImpl implements RoommateService {
     public void deletePost(Long postId) {
         RoommatePost post = roommateRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found with id = " + postId));
+        currentUserService.requireResourceOwner(post.getUser());
 
         roommateRepository.delete(post);
     }

@@ -12,6 +12,7 @@ import com.example.rent_it.Service.EmailService;
 import com.example.rent_it.Service.UserService;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -42,11 +43,33 @@ public class UserServiceImp implements UserService {
     @Autowired
     private  PasswordEncoder passwordEncoder;
 
+    @Value("${app.registration.auto-verify:false}")
+    private boolean autoVerifyRegistration;
+
     @Override
     public UserDto createNewUser(UserDto userDto) {
 
         if (userRepositoty.existsByEmail(userDto.getEmail())) {
             throw new ResourceNotFoundException("User already exists with email = " + userDto.getEmail());
+        }
+
+        String role = normalizeRole(userDto.getRole());
+        if (userDto.getPassword() == null || userDto.getPassword().isBlank()) {
+            throw new ResourceNotFoundException("Password is required");
+        }
+
+        if (autoVerifyRegistration) {
+            User user = User.builder()
+                    .name(userDto.getName())
+                    .email(userDto.getEmail())
+                    .password(passwordEncoder.encode(userDto.getPassword()))
+                    .role(Role.valueOf(role))
+                    .phone(userDto.getPhone())
+                    .active(true)
+                    .emailVerified(true)
+                    .build();
+
+            return toDto(userRepositoty.save(user));
         }
 
         pendingUserRepository.findByEmail(userDto.getEmail()).ifPresent(existingPendingUser -> {
@@ -56,11 +79,6 @@ public class UserServiceImp implements UserService {
 
             pendingUserRepository.delete(existingPendingUser);
         });
-
-        String role = normalizeRole(userDto.getRole());
-        if (userDto.getPassword() == null || userDto.getPassword().isBlank()) {
-            throw new ResourceNotFoundException("Password is required");
-        }
 
         String otp=generateOtp();
         PendingUser pendingUser=new PendingUser();

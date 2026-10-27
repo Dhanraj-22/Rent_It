@@ -3,6 +3,7 @@ package com.example.rent_it.Controller;
 import com.example.rent_it.DTO.RoomInterestRequestDto;
 import com.example.rent_it.DTO.RoomPostDto;
 import com.example.rent_it.Service.RoomPostService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,7 @@ public class RoomPostController {
     private final RoomPostService roomPostService;
     @PostMapping(value = "/{ownerId}",
     consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<RoomPostDto> createRoomPost(@RequestPart("room") RoomPostDto roomPostDto
+    public ResponseEntity<RoomPostDto> createRoomPost(@Valid @RequestPart("room") RoomPostDto roomPostDto
     ,@RequestPart(value = "images", required = false) MultipartFile [] images
     ,@PathVariable Long ownerId) throws IOException {
         return ResponseEntity.ok(roomPostService.createRoomPost(roomPostDto, images, ownerId));
@@ -59,7 +60,7 @@ public class RoomPostController {
     public ResponseEntity<RoomInterestRequestDto> sendInterest(
             @PathVariable Long roomId,
             @PathVariable Long userId,
-            @RequestBody RoomInterestRequestDto requestDto) {
+            @Valid @RequestBody RoomInterestRequestDto requestDto) {
         String message = requestDto == null ? "" : requestDto.getMessage();
         return ResponseEntity.ok(roomPostService.sendRoomInterestRequest(roomId,userId,message));
     }

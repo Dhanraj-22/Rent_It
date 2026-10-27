@@ -2,6 +2,7 @@ package com.example.rent_it.Controller;
 
 import com.example.rent_it.DTO.PropertyDto;
 import com.example.rent_it.Service.PropertyService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,7 +29,7 @@ public class PropertyController {
 
     @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PropertyDto> addProperty(
-            @RequestPart("property") PropertyDto propertyDto,
+            @Valid @RequestPart("property") PropertyDto propertyDto,
             @RequestPart(value = "files", required = false) MultipartFile[] files) throws IOException {
 
         PropertyDto saved = propertyService.addProperty(propertyDto, files, propertyDto.getOwnerId());
@@ -37,7 +38,7 @@ public class PropertyController {
 
     @PostMapping(value = "/add/{ownerId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PropertyDto> addPropertyForOwner(
-            @RequestPart("property") PropertyDto propertyDto,
+            @Valid @RequestPart("property") PropertyDto propertyDto,
             @RequestPart(value = "files", required = false) MultipartFile[] files,
             @PathVariable Long ownerId) throws IOException {
 
